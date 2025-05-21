@@ -1,63 +1,75 @@
-import streamlit as st # Keep this at the very top!
+# analytics_dashboard.py
+import streamlit as st
 import pandas as pd
-from supabase import create_client, Client
+# from supabase import create_client, Client # No longer needed if using st.connection
+# import supabase # No longer needed if using st.connection
+from st_supabase_connection import SupabaseConnection # <-- Import st_supabase_connection
 
-# --- Streamlit Page Configuration (MUST BE FIRST Streamlit command) ---
+# --- Local Imports ---
+from data import format_ontology_name # Assuming data.py is accessible
+
 st.set_page_config(page_title="CICS Analytics Dashboard", layout="wide")
-
-# --- Supabase Initialization (same as main app) ---
-# Retrieve credentials from Streamlit secrets
-supabase_url = st.secrets["SUPABASE_URL"]
-supabase_key = st.secrets["SUPABASE_KEY"]
-
-@st.cache_resource
-def init_supabase_client():
-    return create_client(supabase_url, supabase_key)
-
-supabase: Client = init_supabase_client()
-
-# --- Your existing data utilities (for format_ontology_name) ---
-# Make sure data.py is accessible or copy the format_ontology_name function here
-from data import format_ontology_name # Assuming data.py is in the same directory
-
-# --- Analytics Dashboard App ---
 st.title("📊 CICS Program Recommender Analytics")
 
-# Simple password protection for the dashboard
 password = st.text_input("Enter password to view analytics:", type="password")
-if password != "mylittlepony": # REPLACE THIS WITH A STRONG PASSWORD!
-    st.stop() # Stop execution if password is incorrect
+if password != "mylittlepony":
+    st.stop()
 
 st.markdown("---")
 
-@st.cache_data(ttl=600) # Cache data for 10 minutes to reduce Supabase reads
-def get_user_selections():
+# --- Supabase Initialization (Consistent with main.py) ---
+# It automatically reads [connections.supabase] from .streamlit/secrets.toml
+conn = st.connection("supabase", type=SupabaseConnection) # <-- Use st.connection here
+
+@st.cache_data(ttl=600)
+def get_analytics_data():
     try:
-        response = supabase.table("user_selections").select("*").execute()
-        return response.data # response.data contains the list of dictionaries
+        # Fetch selections
+        # Use conn.table instead of supabase.table
+        selections_response = conn.table("user_selections").select("*").execute()
+        selections_df = pd.DataFrame(selections_response.data)
+
+        # Fetch user profiles (including strand)
+        # Use conn.table instead of supabase.table
+        profiles_response = conn.table("user_profiles").select("*").execute()
+        profiles_df = pd.DataFrame(profiles_response.data)
+
+        if selections_df.empty:
+            return None, None # No data
+        else:
+            # MODIFIED: Merge the two dataframes on profile_id and id
+            # 'profile_id' is the foreign key in user_selections
+            # 'id' is the primary key in user_profiles
+            merged_df = pd.merge(selections_df, profiles_df,
+                                 left_on='profile_id', # <-- Use profile_id from user_selections
+                                 right_on='id',        # <-- Use id from user_profiles
+                                 how='left',
+                                 suffixes=('_selection', '_profile')) # Add suffixes to distinguish columns with same names like 'id'
+
+            return merged_df, selections_df # Return both merged and original selections
+
     except Exception as e:
         st.error(f"Error fetching data from Supabase: {e}")
-        return []
+        return None, None
 
-data = get_user_selections()
+merged_data, selections_df = get_analytics_data()
 
-if not data:
+if merged_data is None or merged_data.empty: # Check for empty merged_data too
     st.info("No user selection data collected yet.")
 else:
-    df = pd.DataFrame(data)
-
     st.header("Overall Statistics")
-    total_unique_sessions = df['session_id'].nunique()
-    total_interest_selections = len(df)
-    # Ensure timestamp is datetime for min/max
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    earliest_record = df['timestamp'].min().strftime('%Y-%m-%d %H:%M:%S')
-    latest_record = df['timestamp'].max().strftime('%Y-%m-%d %H:%M:%S')
-
+    # MODIFIED: Count unique profiles based on the 'id_profile' or 'id' from the profiles table
+    total_unique_users = merged_data['id_profile'].nunique() if 'id_profile' in merged_data.columns else merged_data['id'].nunique() # Use id_profile after merge, or just id if not renamed
+    total_interest_selections = len(merged_data)
+    
+    # Use the timestamp from the selections table, which is 'selected_at'
+    merged_data['selected_at'] = pd.to_datetime(merged_data['selected_at']) # <-- Use 'selected_at' from user_selections
+    earliest_record = merged_data['selected_at'].min().strftime('%Y-%m-%d %H:%M:%S')
+    latest_record = merged_data['selected_at'].max().strftime('%Y-%m-%d %H:%M:%S')
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Total Unique Sessions", total_unique_sessions)
+        st.metric("Total Unique Users", total_unique_users)
     with col2:
         st.metric("Total Interest Selections", total_interest_selections)
     with col3:
@@ -67,23 +79,40 @@ else:
 
     st.markdown("---")
 
-    st.header("Most Popular Interests Selected")
-    interest_counts = df['interest'].value_counts().reset_index()
-    interest_counts.columns = ['Interest', 'Selections']
-    interest_counts['Interest'] = interest_counts['Interest'].apply(format_ontology_name)
-
-    st.dataframe(interest_counts)
-    st.bar_chart(interest_counts.set_index('Interest'))
+    st.header("Most Popular Interests Selected (Overall)")
+    # Ensure 'interest_raw' is used as the column for interests from user_selections
+    interest_counts_overall = merged_data['interest_raw'].value_counts().reset_index() # <-- Use 'interest_raw'
+    interest_counts_overall.columns = ['Interest', 'Selections']
+    interest_counts_overall['Interest'] = interest_counts_overall['Interest'].apply(format_ontology_name)
+    st.dataframe(interest_counts_overall)
+    st.bar_chart(interest_counts_overall.set_index('Interest'))
 
     st.markdown("---")
 
-    st.header("Activity Over Time")
-    df['date'] = pd.to_datetime(df['timestamp']).dt.date
-    daily_activity = df['date'].value_counts().sort_index().reset_index()
-    daily_activity.columns = ['Date', 'Selections']
-    st.line_chart(daily_activity.set_index('Date'))
+    st.header("Interest Selections by Strand")
+    if 'strand' in merged_data.columns and not merged_data['strand'].isnull().all():
+        # Drop rows where strand is None or NaN before grouping for cleaner display
+        strand_data = merged_data.dropna(subset=['strand'])
+        if not strand_data.empty:
+            interest_by_strand = strand_data.groupby('strand')['interest_raw'].value_counts().unstack(fill_value=0)
+            # Apply format_ontology_name to the index (interests)
+            interest_by_strand.index = interest_by_strand.index.map(format_ontology_name)
+            st.dataframe(interest_by_strand)
 
-    # You can add more detailed analytics here, for example:
-    # - Top combinations of interests
-    # - How many interests are selected per session (average, distribution)
-    # - Analyze the recommended programs (if you store program recommendations too)
+            # Optional: Visualize top interests per strand
+            # MODIFIED LINE: Iterate directly over the columns of interest_by_strand
+            for s_col in interest_by_strand.columns: # <--- CHANGED THIS LINE
+                st.subheader(f"Top Interests for {s_col} Strand") # <--- Use s_col here
+                strand_interests = interest_by_strand[s_col].sort_values(ascending=False).head(5) # Top 5
+                if not strand_interests.empty:
+                    st.bar_chart(strand_interests)
+                else:
+                    st.info(f"No interest data yet for {s_col} strand.") # <--- Use s_col here
+        else:
+            st.info("No strand data available yet.")
+    else:
+<<<<<<< HEAD
+        st.info("No strand data collected or 'strand' column not found.")
+=======
+        st.info("No strand data collected or 'strand' column not found.")
+>>>>>>> b7dfa2bccf9ec92255581398a90a75669249bc63
