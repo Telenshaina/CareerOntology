@@ -111,8 +111,4 @@ else:
         else:
             st.info("No strand data available yet.")
     else:
-<<<<<<< HEAD
         st.info("No strand data collected or 'strand' column not found.")
-=======
-        st.info("No strand data collected or 'strand' column not found.")
->>>>>>> b7dfa2bccf9ec92255581398a90a75669249bc63

@@ -2,8 +2,4 @@ streamlit
 supabase
 pandasstreamlit
 supabase
-<<<<<<< HEAD
 st-supabase-connection 
-=======
-st-supabase-connection 
->>>>>>> b7dfa2bccf9ec92255581398a90a75669249bc63
