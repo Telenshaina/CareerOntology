@@ -1,0 +1,321 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script>function neighbourhoodHighlight(params) {
+  // console.log("in nieghbourhoodhighlight");
+  allNodes = nodes.get({ returnType: "Object" });
+  // originalNodes = JSON.parse(JSON.stringify(allNodes));
+  // if something is selected:
+  if (params.nodes.length > 0) {
+    highlightActive = true;
+    var i, j;
+    var selectedNode = params.nodes[0];
+    var degrees = 2;
+
+    // mark all nodes as hard to read.
+    for (let nodeId in allNodes) {
+      // nodeColors[nodeId] = allNodes[nodeId].color;
+      allNodes[nodeId].color = "rgba(200,200,200,0.5)";
+      if (allNodes[nodeId].hiddenLabel === undefined) {
+        allNodes[nodeId].hiddenLabel = allNodes[nodeId].label;
+        allNodes[nodeId].label = undefined;
+      }
+    }
+    var connectedNodes = network.getConnectedNodes(selectedNode);
+    var allConnectedNodes = [];
+
+    // get the second degree nodes
+    for (i = 1; i < degrees; i++) {
+      for (j = 0; j < connectedNodes.length; j++) {
+        allConnectedNodes = allConnectedNodes.concat(
+          network.getConnectedNodes(connectedNodes[j])
+        );
+      }
+    }
+
+    // all second degree nodes get a different color and their label back
+    for (i = 0; i < allConnectedNodes.length; i++) {
+      // allNodes[allConnectedNodes[i]].color = "pink";
+      allNodes[allConnectedNodes[i]].color = "rgba(150,150,150,0.75)";
+      if (allNodes[allConnectedNodes[i]].hiddenLabel !== undefined) {
+        allNodes[allConnectedNodes[i]].label =
+          allNodes[allConnectedNodes[i]].hiddenLabel;
+        allNodes[allConnectedNodes[i]].hiddenLabel = undefined;
+      }
+    }
+
+    // all first degree nodes get their own color and their label back
+    for (i = 0; i < connectedNodes.length; i++) {
+      // allNodes[connectedNodes[i]].color = undefined;
+      allNodes[connectedNodes[i]].color = nodeColors[connectedNodes[i]];
+      if (allNodes[connectedNodes[i]].hiddenLabel !== undefined) {
+        allNodes[connectedNodes[i]].label =
+          allNodes[connectedNodes[i]].hiddenLabel;
+        allNodes[connectedNodes[i]].hiddenLabel = undefined;
+      }
+    }
+
+    // the main node gets its own color and its label back.
+    // allNodes[selectedNode].color = undefined;
+    allNodes[selectedNode].color = nodeColors[selectedNode];
+    if (allNodes[selectedNode].hiddenLabel !== undefined) {
+      allNodes[selectedNode].label = allNodes[selectedNode].hiddenLabel;
+      allNodes[selectedNode].hiddenLabel = undefined;
+    }
+  } else if (highlightActive === true) {
+    // console.log("highlightActive was true");
+    // reset all nodes
+    for (let nodeId in allNodes) {
+      // allNodes[nodeId].color = "purple";
+      allNodes[nodeId].color = nodeColors[nodeId];
+      // delete allNodes[nodeId].color;
+      if (allNodes[nodeId].hiddenLabel !== undefined) {
+        allNodes[nodeId].label = allNodes[nodeId].hiddenLabel;
+        allNodes[nodeId].hiddenLabel = undefined;
+      }
+    }
+    highlightActive = false;
+  }
+
+  // transform the object into an array
+  var updateArray = [];
+  if (params.nodes.length > 0) {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        // console.log(allNodes[nodeId]);
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  } else {
+    // console.log("Nothing was selected");
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        // console.log(allNodes[nodeId]);
+        // allNodes[nodeId].color = {};
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  }
+}
+
+function filterHighlight(params) {
+  allNodes = nodes.get({ returnType: "Object" });
+  // if something is selected:
+  if (params.nodes.length > 0) {
+    filterActive = true;
+    let selectedNodes = params.nodes;
+
+    // hiding all nodes and saving the label
+    for (let nodeId in allNodes) {
+      allNodes[nodeId].hidden = true;
+      if (allNodes[nodeId].savedLabel === undefined) {
+        allNodes[nodeId].savedLabel = allNodes[nodeId].label;
+        allNodes[nodeId].label = undefined;
+      }
+    }
+
+    for (let i=0; i < selectedNodes.length; i++) {
+      allNodes[selectedNodes[i]].hidden = false;
+      if (allNodes[selectedNodes[i]].savedLabel !== undefined) {
+        allNodes[selectedNodes[i]].label = allNodes[selectedNodes[i]].savedLabel;
+        allNodes[selectedNodes[i]].savedLabel = undefined;
+      }
+    }
+
+  } else if (filterActive === true) {
+    // reset all nodes
+    for (let nodeId in allNodes) {
+      allNodes[nodeId].hidden = false;
+      if (allNodes[nodeId].savedLabel !== undefined) {
+        allNodes[nodeId].label = allNodes[nodeId].savedLabel;
+        allNodes[nodeId].savedLabel = undefined;
+      }
+    }
+    filterActive = false;
+  }
+
+  // transform the object into an array
+  var updateArray = [];
+  if (params.nodes.length > 0) {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  } else {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  }
+}
+
+function selectNode(nodes) {
+  network.selectNodes(nodes);
+  neighbourhoodHighlight({ nodes: nodes });
+  return nodes;
+}
+
+function selectNodes(nodes) {
+  network.selectNodes(nodes);
+  filterHighlight({nodes: nodes});
+  return nodes;
+}
+
+function highlightFilter(filter) {
+  let selectedNodes = []
+  let selectedProp = filter['property']
+  if (filter['item'] === 'node') {
+    let allNodes = nodes.get({ returnType: "Object" });
+    for (let nodeId in allNodes) {
+      if (allNodes[nodeId][selectedProp] && filter['value'].includes((allNodes[nodeId][selectedProp]).toString())) {
+        selectedNodes.push(nodeId)
+      }
+    }
+  }
+  else if (filter['item'] === 'edge'){
+    let allEdges = edges.get({returnType: 'object'});
+    // check if the selected property exists for selected edge and select the nodes connected to the edge
+    for (let edge in allEdges) {
+      if (allEdges[edge][selectedProp] && filter['value'].includes((allEdges[edge][selectedProp]).toString())) {
+        selectedNodes.push(allEdges[edge]['from'])
+        selectedNodes.push(allEdges[edge]['to'])
+      }
+    }
+  }
+  selectNodes(selectedNodes)
+}</script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+            
+            
+            
+            
+            
+
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 600px;
+                 background-color: #222222;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"font": {"color": "white"}, "group": "Interest", "id": "Artificial_Intelligence_Machine_Learning", "label": "Artificial Intelligence Machine Learning", "physics": true, "shape": "dot", "title": "Artificial Intelligence Machine Learning"}, {"font": {"color": "white"}, "group": "Interest", "id": "Computer_Hardware", "label": "Computer Hardware", "physics": true, "shape": "dot", "title": "Computer Hardware"}, {"font": {"color": "white"}, "group": "Career", "id": "Video_Editor", "label": "Video Editor", "physics": true, "shape": "dot", "title": "Video Editor"}, {"font": {"color": "white"}, "group": "Career", "id": "System_Administrator", "label": "System Administrator", "physics": true, "shape": "dot", "title": "System Administrator"}, {"font": {"color": "white"}, "group": "Skill", "id": "Teaching_Computers_to_Learn", "label": "Teaching Computers To Learn", "physics": true, "shape": "dot", "title": "Teaching Computers To Learn"}, {"font": {"color": "white"}, "group": "Career", "id": "Cloud_Developer", "label": "Cloud Developer", "physics": true, "shape": "dot", "title": "Cloud Developer"}, {"font": {"color": "white"}, "group": "Career", "id": "Cloud_Administrator", "label": "Cloud Administrator", "physics": true, "shape": "dot", "title": "Cloud Administrator"}, {"font": {"color": "white"}, "group": "Career", "id": "IT_Project_Manager", "label": "IT Project Manager", "physics": true, "shape": "dot", "title": "IT Project Manager"}, {"font": {"color": "white"}, "group": "Career", "id": "Help_Desk_Technician", "label": "Help Desk Technician", "physics": true, "shape": "dot", "title": "Help Desk Technician"}, {"font": {"color": "white"}, "group": "Interest", "id": "UX_UI_Design", "label": "UX UI Design", "physics": true, "shape": "dot", "title": "UX UI Design"}, {"font": {"color": "white"}, "group": "Career", "id": "Fullstack_Developer", "label": "Fullstack Developer", "physics": true, "shape": "dot", "title": "Fullstack Developer"}, {"font": {"color": "white"}, "group": "Career", "id": "Systems_Analyst", "label": "Systems Analyst", "physics": true, "shape": "dot", "title": "Systems Analyst"}, {"font": {"color": "white"}, "group": "Program", "id": "BS Information Technology", "label": "Bs Information Technology", "physics": true, "shape": "dot", "title": "Bs Information Technology"}, {"font": {"color": "white"}, "group": "Skill", "id": "Understanding_Statistics", "label": "Understanding Statistics", "physics": true, "shape": "dot", "title": "Understanding Statistics"}, {"font": {"color": "white"}, "group": "Career", "id": "Frontend_Developer", "label": "Frontend Developer", "physics": true, "shape": "dot", "title": "Frontend Developer"}, {"font": {"color": "white"}, "group": "Career", "id": "Data_Scientist", "label": "Data Scientist", "physics": true, "shape": "dot", "title": "Data Scientist"}, {"font": {"color": "white"}, "group": "Career", "id": "Database_Administrator", "label": "Database Administrator", "physics": true, "shape": "dot", "title": "Database Administrator"}, {"font": {"color": "white"}, "group": "Career", "id": "IoT_Developer", "label": "IOT Developer", "physics": true, "shape": "dot", "title": "IOT Developer"}, {"font": {"color": "white"}, "group": "Career", "id": "Software_Engineer", "label": "Software Engineer", "physics": true, "shape": "dot", "title": "Software Engineer"}, {"font": {"color": "white"}, "group": "Career", "id": "Concept_Artist", "label": "Concept Artist", "physics": true, "shape": "dot", "title": "Concept Artist"}, {"font": {"color": "white"}, "group": "Career", "id": "Multimedia_Artist", "label": "Multimedia Artist", "physics": true, "shape": "dot", "title": "Multimedia Artist"}, {"font": {"color": "white"}, "group": "Program", "id": "BS Computer Science", "label": "Bs Computer Science", "physics": true, "shape": "dot", "title": "Bs Computer Science"}, {"font": {"color": "white"}, "group": "Program", "id": "BS Information Systems", "label": "Bs Information Systems", "physics": true, "shape": "dot", "title": "Bs Information Systems"}, {"font": {"color": "white"}, "group": "Career", "id": "Game_Developer", "label": "Game Developer", "physics": true, "shape": "dot", "title": "Game Developer"}, {"font": {"color": "white"}, "group": "Skill", "id": "Designing_Game_Rules", "label": "Designing Game Rules", "physics": true, "shape": "dot", "title": "Designing Game Rules"}, {"font": {"color": "white"}, "group": "Career", "id": "IT_Researcher", "label": "IT Researcher", "physics": true, "shape": "dot", "title": "IT Researcher"}, {"font": {"color": "white"}, "group": "Career", "id": "Network_Administrator", "label": "Network Administrator", "physics": true, "shape": "dot", "title": "Network Administrator"}, {"font": {"color": "white"}, "group": "Career", "id": "Cybersecurity_Developer", "label": "Cybersecurity Developer", "physics": true, "shape": "dot", "title": "Cybersecurity Developer"}, {"font": {"color": "white"}, "group": "Skill", "id": "Designing_User_Interface", "label": "Designing User Interface", "physics": true, "shape": "dot", "title": "Designing User Interface"}, {"font": {"color": "white"}, "group": "Career", "id": "DevOps_Engineer", "label": "Devops Engineer", "physics": true, "shape": "dot", "title": "Devops Engineer"}, {"font": {"color": "white"}, "group": "Career", "id": "UX_UI_Designer", "label": "UX UI Designer", "physics": true, "shape": "dot", "title": "UX UI Designer"}, {"font": {"color": "white"}, "group": "Program", "id": "BS Entertainment and Multimedia Computing (Game Development)", "label": "Bs Entertainment And Multimedia Computing (game Development)", "physics": true, "shape": "dot", "title": "Bs Entertainment And Multimedia Computing (game Development)"}, {"font": {"color": "white"}, "group": "Skill", "id": "Creating_Graphics_and_Art", "label": "Creating Graphics And Art", "physics": true, "shape": "dot", "title": "Creating Graphics And Art"}, {"font": {"color": "white"}, "group": "Career", "id": "Business_Intelligence_Analyst", "label": "Business Intelligence Analyst", "physics": true, "shape": "dot", "title": "Business Intelligence Analyst"}, {"font": {"color": "white"}, "group": "Career", "id": "IT_Consultant", "label": "IT Consultant", "physics": true, "shape": "dot", "title": "IT Consultant"}, {"font": {"color": "white"}, "group": "Career", "id": "Backend_Developer", "label": "Backend Developer", "physics": true, "shape": "dot", "title": "Backend Developer"}, {"font": {"color": "white"}, "group": "Career", "id": "2D_Animator", "label": "2D Animator", "physics": true, "shape": "dot", "title": "2D Animator"}, {"font": {"color": "white"}, "group": "Skill", "id": "Building_Program_Logic", "label": "Building Program Logic", "physics": true, "shape": "dot", "title": "Building Program Logic"}, {"font": {"color": "white"}, "group": "Career", "id": "Level_Designer", "label": "Level Designer", "physics": true, "shape": "dot", "title": "Level Designer"}, {"font": {"color": "white"}, "group": "Career", "id": "Game_Designer", "label": "Game Designer", "physics": true, "shape": "dot", "title": "Game Designer"}, {"font": {"color": "white"}, "group": "Career", "id": "Business_Analyst", "label": "Business Analyst", "physics": true, "shape": "dot", "title": "Business Analyst"}, {"font": {"color": "white"}, "group": "Program", "id": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "Bs Entertainment And Multimedia Computing (digital Animation)", "physics": true, "shape": "dot", "title": "Bs Entertainment And Multimedia Computing (digital Animation)"}, {"font": {"color": "white"}, "group": "Career", "id": "Embedded_Systems_Developer", "label": "Embedded Systems Developer", "physics": true, "shape": "dot", "title": "Embedded Systems Developer"}, {"font": {"color": "white"}, "group": "Career", "id": "Web_Designer", "label": "Web Designer", "physics": true, "shape": "dot", "title": "Web Designer"}, {"font": {"color": "white"}, "group": "Interest", "id": "Game_Programming", "label": "Game Programming", "physics": true, "shape": "dot", "title": "Game Programming"}, {"font": {"color": "white"}, "group": "Skill", "id": "Designing_User_Experience", "label": "Designing User Experience", "physics": true, "shape": "dot", "title": "Designing User Experience"}, {"font": {"color": "white"}, "group": "Skill", "id": "Building_Games_Code", "label": "Building Games Code", "physics": true, "shape": "dot", "title": "Building Games Code"}, {"font": {"color": "white"}, "group": "Skill", "id": "Assembling_and_Fixing_Hardware", "label": "Assembling And Fixing Hardware", "physics": true, "shape": "dot", "title": "Assembling And Fixing Hardware"}, {"font": {"color": "white"}, "group": "Skill", "id": "Fixing_Tech_Problems", "label": "Fixing Tech Problems", "physics": true, "shape": "dot", "title": "Fixing Tech Problems"}, {"font": {"color": "white"}, "group": "Career", "id": "IT_Support_Specialist", "label": "IT Support Specialist", "physics": true, "shape": "dot", "title": "IT Support Specialist"}, {"font": {"color": "white"}, "group": "Career", "id": "Game_Programmer", "label": "Game Programmer", "physics": true, "shape": "dot", "title": "Game Programmer"}, {"font": {"color": "white"}, "group": "Career", "id": "Project_Manager", "label": "Project Manager", "physics": true, "shape": "dot", "title": "Project Manager"}, {"font": {"color": "white"}, "group": "Skill", "id": "Designing_Circuits", "label": "Designing Circuits", "physics": true, "shape": "dot", "title": "Designing Circuits"}, {"font": {"color": "white"}, "group": "Skill", "id": "Developing_Concept_Art", "label": "Developing Concept Art", "physics": true, "shape": "dot", "title": "Developing Concept Art"}, {"font": {"color": "white"}, "group": "Skill", "id": "Predicting_Trends_from_Data", "label": "Predicting Trends From Data", "physics": true, "shape": "dot", "title": "Predicting Trends From Data"}, {"font": {"color": "white"}, "group": "Career", "id": "Graphic_Designer", "label": "Graphic Designer", "physics": true, "shape": "dot", "title": "Graphic Designer"}, {"font": {"color": "white"}, "group": "Career", "id": "Hardware_Engineer", "label": "Hardware Engineer", "physics": true, "shape": "dot", "title": "Hardware Engineer"}, {"font": {"color": "white"}, "group": "Career", "id": "Motion_Graphics_Designer", "label": "Motion Graphics Designer", "physics": true, "shape": "dot", "title": "Motion Graphics Designer"}, {"font": {"color": "white"}, "group": "Career", "id": "AI_ML_Engineer", "label": "AI ML Engineer", "physics": true, "shape": "dot", "title": "AI ML Engineer"}, {"font": {"color": "white"}, "group": "Career", "id": "Operations_Manager", "label": "Operations Manager", "physics": true, "shape": "dot", "title": "Operations Manager"}, {"font": {"color": "white"}, "group": "Career", "id": "Product_Manager", "label": "Product Manager", "physics": true, "shape": "dot", "title": "Product Manager"}, {"font": {"color": "white"}, "group": "Career", "id": "3D_Artist_Modeler", "label": "3D Artist Modeler", "physics": true, "shape": "dot", "title": "3D Artist Modeler"}, {"font": {"color": "white"}, "group": "Skill", "id": "Analyzing_Data_with_Code", "label": "Analyzing Data With Code", "physics": true, "shape": "dot", "title": "Analyzing Data With Code"}, {"font": {"color": "white"}, "group": "Career", "id": "Game_Tester", "label": "Game Tester", "physics": true, "shape": "dot", "title": "Game Tester"}, {"font": {"color": "white"}, "group": "Career", "id": "Mobile_App_Developer", "label": "Mobile App Developer", "physics": true, "shape": "dot", "title": "Mobile App Developer"}, {"font": {"color": "white"}, "group": "Career", "id": "Entrepreneur", "label": "Entrepreneur", "physics": true, "shape": "dot", "title": "Entrepreneur"}, {"font": {"color": "white"}, "group": "Career", "id": "Data_Analyst", "label": "Data Analyst", "physics": true, "shape": "dot", "title": "Data Analyst"}, {"font": {"color": "white"}, "group": "Career", "id": "Digital_Illustrator", "label": "Digital Illustrator", "physics": true, "shape": "dot", "title": "Digital Illustrator"}, {"font": {"color": "white"}, "group": "Career", "id": "Cybersecurity_Analyst", "label": "Cybersecurity Analyst", "physics": true, "shape": "dot", "title": "Cybersecurity Analyst"}, {"font": {"color": "white"}, "group": "Skill", "id": "Writing_Code", "label": "Writing Code", "physics": true, "shape": "dot", "title": "Writing Code"}]);
+                  edges = new vis.DataSet([{"arrows": "to", "color": "#FFD700", "from": "UX_UI_Design", "label": "relatedTo", "title": "relatedTo", "to": "Designing_User_Experience"}, {"arrows": "to", "color": "#FFD700", "from": "UX_UI_Design", "label": "relatedTo", "title": "relatedTo", "to": "Designing_User_Interface"}, {"arrows": "to", "color": "#FFD700", "from": "UX_UI_Design", "label": "relatedTo", "title": "relatedTo", "to": "Creating_Graphics_and_Art"}, {"arrows": "to", "color": "#FFD700", "from": "UX_UI_Design", "label": "relatedTo", "title": "relatedTo", "to": "Developing_Concept_Art"}, {"arrows": "to", "color": "#FFD700", "from": "Computer_Hardware", "label": "relatedTo", "title": "relatedTo", "to": "Assembling_and_Fixing_Hardware"}, {"arrows": "to", "color": "#FFD700", "from": "Computer_Hardware", "label": "relatedTo", "title": "relatedTo", "to": "Fixing_Tech_Problems"}, {"arrows": "to", "color": "#FFD700", "from": "Computer_Hardware", "label": "relatedTo", "title": "relatedTo", "to": "Designing_Circuits"}, {"arrows": "to", "color": "#FFD700", "from": "Game_Programming", "label": "relatedTo", "title": "relatedTo", "to": "Building_Games_Code"}, {"arrows": "to", "color": "#FFD700", "from": "Game_Programming", "label": "relatedTo", "title": "relatedTo", "to": "Writing_Code"}, {"arrows": "to", "color": "#FFD700", "from": "Game_Programming", "label": "relatedTo", "title": "relatedTo", "to": "Building_Program_Logic"}, {"arrows": "to", "color": "#FFD700", "from": "Game_Programming", "label": "relatedTo", "title": "relatedTo", "to": "Designing_Game_Rules"}, {"arrows": "to", "color": "#FFD700", "from": "Artificial_Intelligence_Machine_Learning", "label": "relatedTo", "title": "relatedTo", "to": "Teaching_Computers_to_Learn"}, {"arrows": "to", "color": "#FFD700", "from": "Artificial_Intelligence_Machine_Learning", "label": "relatedTo", "title": "relatedTo", "to": "Analyzing_Data_with_Code"}, {"arrows": "to", "color": "#FFD700", "from": "Artificial_Intelligence_Machine_Learning", "label": "relatedTo", "title": "relatedTo", "to": "Understanding_Statistics"}, {"arrows": "to", "color": "#FFD700", "from": "Artificial_Intelligence_Machine_Learning", "label": "relatedTo", "title": "relatedTo", "to": "Building_Program_Logic"}, {"arrows": "to", "color": "#FFD700", "from": "Artificial_Intelligence_Machine_Learning", "label": "relatedTo", "title": "relatedTo", "to": "Predicting_Trends_from_Data"}, {"arrows": "to", "color": "#90EE90", "from": "BS Computer Science", "label": "develops", "title": "develops", "to": "Building_Program_Logic"}, {"arrows": "to", "color": "#90EE90", "from": "BS Computer Science", "label": "develops", "title": "develops", "to": "Writing_Code"}, {"arrows": "to", "color": "#90EE90", "from": "BS Computer Science", "label": "develops", "title": "develops", "to": "Teaching_Computers_to_Learn"}, {"arrows": "to", "color": "#90EE90", "from": "BS Computer Science", "label": "develops", "title": "develops", "to": "Analyzing_Data_with_Code"}, {"arrows": "to", "color": "#90EE90", "from": "BS Computer Science", "label": "develops", "title": "develops", "to": "Understanding_Statistics"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Computer Science", "label": "leadsTo", "title": "leadsTo", "to": "Software_Engineer"}, {"arrows": "to", "color": "#B0C4DE", "from": "Software_Engineer", "label": "requiresSkill", "title": "requiresSkill", "to": "Building_Program_Logic"}, {"arrows": "to", "color": "#B0C4DE", "from": "Software_Engineer", "label": "requiresSkill", "title": "requiresSkill", "to": "Writing_Code"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Computer Science", "label": "leadsTo", "title": "leadsTo", "to": "Frontend_Developer"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Computer Science", "label": "leadsTo", "title": "leadsTo", "to": "Backend_Developer"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Computer Science", "label": "leadsTo", "title": "leadsTo", "to": "Fullstack_Developer"}, {"arrows": "to", "color": "#B0C4DE", "from": "Fullstack_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Writing_Code"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Computer Science", "label": "leadsTo", "title": "leadsTo", "to": "Mobile_App_Developer"}, {"arrows": "to", "color": "#B0C4DE", "from": "Mobile_App_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Writing_Code"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Computer Science", "label": "leadsTo", "title": "leadsTo", "to": "AI_ML_Engineer"}, {"arrows": "to", "color": "#B0C4DE", "from": "AI_ML_Engineer", "label": "requiresSkill", "title": "requiresSkill", "to": "Teaching_Computers_to_Learn"}, {"arrows": "to", "color": "#B0C4DE", "from": "AI_ML_Engineer", "label": "requiresSkill", "title": "requiresSkill", "to": "Analyzing_Data_with_Code"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Computer Science", "label": "leadsTo", "title": "leadsTo", "to": "Data_Scientist"}, {"arrows": "to", "color": "#B0C4DE", "from": "Data_Scientist", "label": "requiresSkill", "title": "requiresSkill", "to": "Analyzing_Data_with_Code"}, {"arrows": "to", "color": "#B0C4DE", "from": "Data_Scientist", "label": "requiresSkill", "title": "requiresSkill", "to": "Understanding_Statistics"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Computer Science", "label": "leadsTo", "title": "leadsTo", "to": "Game_Programmer"}, {"arrows": "to", "color": "#B0C4DE", "from": "Game_Programmer", "label": "requiresSkill", "title": "requiresSkill", "to": "Building_Games_Code"}, {"arrows": "to", "color": "#B0C4DE", "from": "Game_Programmer", "label": "requiresSkill", "title": "requiresSkill", "to": "Writing_Code"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Computer Science", "label": "leadsTo", "title": "leadsTo", "to": "DevOps_Engineer"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Computer Science", "label": "leadsTo", "title": "leadsTo", "to": "Cloud_Developer"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Computer Science", "label": "leadsTo", "title": "leadsTo", "to": "Embedded_Systems_Developer"}, {"arrows": "to", "color": "#B0C4DE", "from": "Embedded_Systems_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Designing_Circuits"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Computer Science", "label": "leadsTo", "title": "leadsTo", "to": "Cybersecurity_Developer"}, {"arrows": "to", "color": "#B0C4DE", "from": "Cybersecurity_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Writing_Code"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Computer Science", "label": "leadsTo", "title": "leadsTo", "to": "IT_Researcher"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "develops", "title": "develops", "to": "Building_Games_Code"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "develops", "title": "develops", "to": "Designing_Game_Rules"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "develops", "title": "develops", "to": "Writing_Code"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "develops", "title": "develops", "to": "Designing_User_Experience"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "develops", "title": "develops", "to": "Designing_User_Interface"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "leadsTo", "title": "leadsTo", "to": "Game_Developer"}, {"arrows": "to", "color": "#B0C4DE", "from": "Game_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Building_Games_Code"}, {"arrows": "to", "color": "#B0C4DE", "from": "Game_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Designing_Game_Rules"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "leadsTo", "title": "leadsTo", "to": "Game_Designer"}, {"arrows": "to", "color": "#B0C4DE", "from": "Game_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Designing_Game_Rules"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "leadsTo", "title": "leadsTo", "to": "Level_Designer"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "leadsTo", "title": "leadsTo", "to": "Game_Programmer"}, {"arrows": "to", "color": "#B0C4DE", "from": "Game_Programmer", "label": "requiresSkill", "title": "requiresSkill", "to": "Building_Games_Code"}, {"arrows": "to", "color": "#B0C4DE", "from": "Game_Programmer", "label": "requiresSkill", "title": "requiresSkill", "to": "Writing_Code"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "leadsTo", "title": "leadsTo", "to": "Game_Tester"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "leadsTo", "title": "leadsTo", "to": "3D_Artist_Modeler"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "leadsTo", "title": "leadsTo", "to": "UX_UI_Designer"}, {"arrows": "to", "color": "#B0C4DE", "from": "UX_UI_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Designing_User_Experience"}, {"arrows": "to", "color": "#B0C4DE", "from": "UX_UI_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Designing_User_Interface"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "develops", "title": "develops", "to": "Creating_Graphics_and_Art"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "develops", "title": "develops", "to": "Developing_Concept_Art"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "develops", "title": "develops", "to": "Designing_User_Experience"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "develops", "title": "develops", "to": "Designing_User_Interface"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "leadsTo", "title": "leadsTo", "to": "Multimedia_Artist"}, {"arrows": "to", "color": "#B0C4DE", "from": "Multimedia_Artist", "label": "requiresSkill", "title": "requiresSkill", "to": "Creating_Graphics_and_Art"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "leadsTo", "title": "leadsTo", "to": "UX_UI_Designer"}, {"arrows": "to", "color": "#B0C4DE", "from": "UX_UI_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Designing_User_Experience"}, {"arrows": "to", "color": "#B0C4DE", "from": "UX_UI_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Designing_User_Interface"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "leadsTo", "title": "leadsTo", "to": "Graphic_Designer"}, {"arrows": "to", "color": "#B0C4DE", "from": "Graphic_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Creating_Graphics_and_Art"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "leadsTo", "title": "leadsTo", "to": "2D_Animator"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "leadsTo", "title": "leadsTo", "to": "3D_Artist_Modeler"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "leadsTo", "title": "leadsTo", "to": "Video_Editor"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "leadsTo", "title": "leadsTo", "to": "Motion_Graphics_Designer"}, {"arrows": "to", "color": "#B0C4DE", "from": "Motion_Graphics_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Creating_Graphics_and_Art"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "leadsTo", "title": "leadsTo", "to": "Concept_Artist"}, {"arrows": "to", "color": "#B0C4DE", "from": "Concept_Artist", "label": "requiresSkill", "title": "requiresSkill", "to": "Developing_Concept_Art"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "leadsTo", "title": "leadsTo", "to": "Digital_Illustrator"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "leadsTo", "title": "leadsTo", "to": "Web_Designer"}, {"arrows": "to", "color": "#B0C4DE", "from": "Web_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Designing_User_Interface"}, {"arrows": "to", "color": "#90EE90", "from": "BS Information Technology", "label": "develops", "title": "develops", "to": "Fixing_Tech_Problems"}, {"arrows": "to", "color": "#90EE90", "from": "BS Information Technology", "label": "develops", "title": "develops", "to": "Assembling_and_Fixing_Hardware"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Technology", "label": "leadsTo", "title": "leadsTo", "to": "IT_Support_Specialist"}, {"arrows": "to", "color": "#B0C4DE", "from": "IT_Support_Specialist", "label": "requiresSkill", "title": "requiresSkill", "to": "Fixing_Tech_Problems"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Technology", "label": "leadsTo", "title": "leadsTo", "to": "Network_Administrator"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Technology", "label": "leadsTo", "title": "leadsTo", "to": "System_Administrator"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Technology", "label": "leadsTo", "title": "leadsTo", "to": "Cloud_Administrator"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Technology", "label": "leadsTo", "title": "leadsTo", "to": "Database_Administrator"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Technology", "label": "leadsTo", "title": "leadsTo", "to": "Cybersecurity_Analyst"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Technology", "label": "leadsTo", "title": "leadsTo", "to": "IT_Consultant"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Technology", "label": "leadsTo", "title": "leadsTo", "to": "Help_Desk_Technician"}, {"arrows": "to", "color": "#B0C4DE", "from": "Help_Desk_Technician", "label": "requiresSkill", "title": "requiresSkill", "to": "Fixing_Tech_Problems"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Technology", "label": "leadsTo", "title": "leadsTo", "to": "IoT_Developer"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Technology", "label": "leadsTo", "title": "leadsTo", "to": "Hardware_Engineer"}, {"arrows": "to", "color": "#B0C4DE", "from": "Hardware_Engineer", "label": "requiresSkill", "title": "requiresSkill", "to": "Designing_Circuits"}, {"arrows": "to", "color": "#B0C4DE", "from": "Hardware_Engineer", "label": "requiresSkill", "title": "requiresSkill", "to": "Assembling_and_Fixing_Hardware"}, {"arrows": "to", "color": "#90EE90", "from": "BS Information Systems", "label": "develops", "title": "develops", "to": "Understanding_Statistics"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Systems", "label": "leadsTo", "title": "leadsTo", "to": "Project_Manager"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Systems", "label": "leadsTo", "title": "leadsTo", "to": "Business_Analyst"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Systems", "label": "leadsTo", "title": "leadsTo", "to": "Systems_Analyst"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Systems", "label": "leadsTo", "title": "leadsTo", "to": "IT_Project_Manager"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Systems", "label": "leadsTo", "title": "leadsTo", "to": "Operations_Manager"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Systems", "label": "leadsTo", "title": "leadsTo", "to": "Product_Manager"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Systems", "label": "leadsTo", "title": "leadsTo", "to": "Entrepreneur"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Systems", "label": "leadsTo", "title": "leadsTo", "to": "Data_Analyst"}, {"arrows": "to", "color": "#B0C4DE", "from": "Data_Analyst", "label": "requiresSkill", "title": "requiresSkill", "to": "Understanding_Statistics"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Systems", "label": "leadsTo", "title": "leadsTo", "to": "Business_Intelligence_Analyst"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Systems", "label": "leadsTo", "title": "leadsTo", "to": "IT_Consultant"}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {"physics": {"forceAtlas2Based": {"gravitationalConstant": -100, "centralGravity": 0.005, "springLength": 200, "springConstant": 0.18}, "minVelocity": 0.75, "solver": "forceAtlas2Based"}, "interaction": {"hover": true, "zoomView": true}, "nodes": {"font": {"size": 14, "color": "#ffffff"}, "scaling": {"min": 10, "max": 30}, "borderWidth": 2}, "edges": {"arrows": {"to": {"enabled": true, "scaleFactor": 0.8}}, "font": {"size": 10, "color": "#ffffff", "strokeWidth": 0}, "width": 1.5}};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>
