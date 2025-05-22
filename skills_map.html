@@ -1,0 +1,321 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script>function neighbourhoodHighlight(params) {
+  // console.log("in nieghbourhoodhighlight");
+  allNodes = nodes.get({ returnType: "Object" });
+  // originalNodes = JSON.parse(JSON.stringify(allNodes));
+  // if something is selected:
+  if (params.nodes.length > 0) {
+    highlightActive = true;
+    var i, j;
+    var selectedNode = params.nodes[0];
+    var degrees = 2;
+
+    // mark all nodes as hard to read.
+    for (let nodeId in allNodes) {
+      // nodeColors[nodeId] = allNodes[nodeId].color;
+      allNodes[nodeId].color = "rgba(200,200,200,0.5)";
+      if (allNodes[nodeId].hiddenLabel === undefined) {
+        allNodes[nodeId].hiddenLabel = allNodes[nodeId].label;
+        allNodes[nodeId].label = undefined;
+      }
+    }
+    var connectedNodes = network.getConnectedNodes(selectedNode);
+    var allConnectedNodes = [];
+
+    // get the second degree nodes
+    for (i = 1; i < degrees; i++) {
+      for (j = 0; j < connectedNodes.length; j++) {
+        allConnectedNodes = allConnectedNodes.concat(
+          network.getConnectedNodes(connectedNodes[j])
+        );
+      }
+    }
+
+    // all second degree nodes get a different color and their label back
+    for (i = 0; i < allConnectedNodes.length; i++) {
+      // allNodes[allConnectedNodes[i]].color = "pink";
+      allNodes[allConnectedNodes[i]].color = "rgba(150,150,150,0.75)";
+      if (allNodes[allConnectedNodes[i]].hiddenLabel !== undefined) {
+        allNodes[allConnectedNodes[i]].label =
+          allNodes[allConnectedNodes[i]].hiddenLabel;
+        allNodes[allConnectedNodes[i]].hiddenLabel = undefined;
+      }
+    }
+
+    // all first degree nodes get their own color and their label back
+    for (i = 0; i < connectedNodes.length; i++) {
+      // allNodes[connectedNodes[i]].color = undefined;
+      allNodes[connectedNodes[i]].color = nodeColors[connectedNodes[i]];
+      if (allNodes[connectedNodes[i]].hiddenLabel !== undefined) {
+        allNodes[connectedNodes[i]].label =
+          allNodes[connectedNodes[i]].hiddenLabel;
+        allNodes[connectedNodes[i]].hiddenLabel = undefined;
+      }
+    }
+
+    // the main node gets its own color and its label back.
+    // allNodes[selectedNode].color = undefined;
+    allNodes[selectedNode].color = nodeColors[selectedNode];
+    if (allNodes[selectedNode].hiddenLabel !== undefined) {
+      allNodes[selectedNode].label = allNodes[selectedNode].hiddenLabel;
+      allNodes[selectedNode].hiddenLabel = undefined;
+    }
+  } else if (highlightActive === true) {
+    // console.log("highlightActive was true");
+    // reset all nodes
+    for (let nodeId in allNodes) {
+      // allNodes[nodeId].color = "purple";
+      allNodes[nodeId].color = nodeColors[nodeId];
+      // delete allNodes[nodeId].color;
+      if (allNodes[nodeId].hiddenLabel !== undefined) {
+        allNodes[nodeId].label = allNodes[nodeId].hiddenLabel;
+        allNodes[nodeId].hiddenLabel = undefined;
+      }
+    }
+    highlightActive = false;
+  }
+
+  // transform the object into an array
+  var updateArray = [];
+  if (params.nodes.length > 0) {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        // console.log(allNodes[nodeId]);
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  } else {
+    // console.log("Nothing was selected");
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        // console.log(allNodes[nodeId]);
+        // allNodes[nodeId].color = {};
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  }
+}
+
+function filterHighlight(params) {
+  allNodes = nodes.get({ returnType: "Object" });
+  // if something is selected:
+  if (params.nodes.length > 0) {
+    filterActive = true;
+    let selectedNodes = params.nodes;
+
+    // hiding all nodes and saving the label
+    for (let nodeId in allNodes) {
+      allNodes[nodeId].hidden = true;
+      if (allNodes[nodeId].savedLabel === undefined) {
+        allNodes[nodeId].savedLabel = allNodes[nodeId].label;
+        allNodes[nodeId].label = undefined;
+      }
+    }
+
+    for (let i=0; i < selectedNodes.length; i++) {
+      allNodes[selectedNodes[i]].hidden = false;
+      if (allNodes[selectedNodes[i]].savedLabel !== undefined) {
+        allNodes[selectedNodes[i]].label = allNodes[selectedNodes[i]].savedLabel;
+        allNodes[selectedNodes[i]].savedLabel = undefined;
+      }
+    }
+
+  } else if (filterActive === true) {
+    // reset all nodes
+    for (let nodeId in allNodes) {
+      allNodes[nodeId].hidden = false;
+      if (allNodes[nodeId].savedLabel !== undefined) {
+        allNodes[nodeId].label = allNodes[nodeId].savedLabel;
+        allNodes[nodeId].savedLabel = undefined;
+      }
+    }
+    filterActive = false;
+  }
+
+  // transform the object into an array
+  var updateArray = [];
+  if (params.nodes.length > 0) {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  } else {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  }
+}
+
+function selectNode(nodes) {
+  network.selectNodes(nodes);
+  neighbourhoodHighlight({ nodes: nodes });
+  return nodes;
+}
+
+function selectNodes(nodes) {
+  network.selectNodes(nodes);
+  filterHighlight({nodes: nodes});
+  return nodes;
+}
+
+function highlightFilter(filter) {
+  let selectedNodes = []
+  let selectedProp = filter['property']
+  if (filter['item'] === 'node') {
+    let allNodes = nodes.get({ returnType: "Object" });
+    for (let nodeId in allNodes) {
+      if (allNodes[nodeId][selectedProp] && filter['value'].includes((allNodes[nodeId][selectedProp]).toString())) {
+        selectedNodes.push(nodeId)
+      }
+    }
+  }
+  else if (filter['item'] === 'edge'){
+    let allEdges = edges.get({returnType: 'object'});
+    // check if the selected property exists for selected edge and select the nodes connected to the edge
+    for (let edge in allEdges) {
+      if (allEdges[edge][selectedProp] && filter['value'].includes((allEdges[edge][selectedProp]).toString())) {
+        selectedNodes.push(allEdges[edge]['from'])
+        selectedNodes.push(allEdges[edge]['to'])
+      }
+    }
+  }
+  selectNodes(selectedNodes)
+}</script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+            
+            
+            
+            
+            
+
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 600px;
+                 background-color: #222222;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"font": {"color": "white"}, "group": "Career", "id": "Technology_Consultant", "label": "Technology Consultant", "physics": true, "shape": "dot", "title": "Technology Consultant"}, {"font": {"color": "white"}, "group": "Skill", "id": "Creating_Graphics_and_Art", "label": "Creating Graphics And Art", "physics": true, "shape": "dot", "title": "Creating Graphics And Art"}, {"font": {"color": "white"}, "group": "Skill", "id": "Logical_Problem_Solving", "label": "Logical Problem Solving", "physics": true, "shape": "dot", "title": "Logical Problem Solving"}, {"font": {"color": "white"}, "group": "Career", "id": "Database_Developer", "label": "Database Developer", "physics": true, "shape": "dot", "title": "Database Developer"}, {"font": {"color": "white"}, "group": "Career", "id": "Cloud_Developer", "label": "Cloud Developer", "physics": true, "shape": "dot", "title": "Cloud Developer"}, {"font": {"color": "white"}, "group": "Skill", "id": "Doing_Research", "label": "Doing Research", "physics": true, "shape": "dot", "title": "Doing Research"}, {"font": {"color": "white"}, "group": "Career", "id": "IT_Consultant", "label": "IT Consultant", "physics": true, "shape": "dot", "title": "IT Consultant"}, {"font": {"color": "white"}, "group": "Program", "id": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "Bs Entertainment And Multimedia Computing (digital Animation)", "physics": true, "shape": "dot", "title": "Bs Entertainment And Multimedia Computing (digital Animation)"}, {"font": {"color": "white"}, "group": "Skill", "id": "Making_Websites", "label": "Making Websites", "physics": true, "shape": "dot", "title": "Making Websites"}, {"font": {"color": "white"}, "group": "Career", "id": "Web_Designer", "label": "Web Designer", "physics": true, "shape": "dot", "title": "Web Designer"}, {"font": {"color": "white"}, "group": "Skill", "id": "Designing_User_Experience", "label": "Designing User Experience", "physics": true, "shape": "dot", "title": "Designing User Experience"}, {"font": {"color": "white"}, "group": "Interest", "id": "UX_UI_Design", "label": "UX UI Design", "physics": true, "shape": "dot", "title": "UX UI Design"}, {"font": {"color": "white"}, "group": "Skill", "id": "Thinking_Critically", "label": "Thinking Critically", "physics": true, "shape": "dot", "title": "Thinking Critically"}, {"font": {"color": "white"}, "group": "Career", "id": "Fullstack_Developer", "label": "Fullstack Developer", "physics": true, "shape": "dot", "title": "Fullstack Developer"}, {"font": {"color": "white"}, "group": "Career", "id": "Academic_Programmer", "label": "Academic Programmer", "physics": true, "shape": "dot", "title": "Academic Programmer"}, {"font": {"color": "white"}, "group": "Career", "id": "Systems_Analyst", "label": "Systems Analyst", "physics": true, "shape": "dot", "title": "Systems Analyst"}, {"font": {"color": "white"}, "group": "Program", "id": "BS Information Technology", "label": "Bs Information Technology", "physics": true, "shape": "dot", "title": "Bs Information Technology"}, {"font": {"color": "white"}, "group": "Skill", "id": "Building_System_Backbones", "label": "Building System Backbones", "physics": true, "shape": "dot", "title": "Building System Backbones"}, {"font": {"color": "white"}, "group": "Skill", "id": "Understanding_Statistics", "label": "Understanding Statistics", "physics": true, "shape": "dot", "title": "Understanding Statistics"}, {"font": {"color": "white"}, "group": "Career", "id": "Frontend_Developer", "label": "Frontend Developer", "physics": true, "shape": "dot", "title": "Frontend Developer"}, {"font": {"color": "white"}, "group": "Career", "id": "Game_Programmer", "label": "Game Programmer", "physics": true, "shape": "dot", "title": "Game Programmer"}, {"font": {"color": "white"}, "group": "Career", "id": "Data_Scientist", "label": "Data Scientist", "physics": true, "shape": "dot", "title": "Data Scientist"}, {"font": {"color": "white"}, "group": "Skill", "id": "Developing_Concept_Art", "label": "Developing Concept Art", "physics": true, "shape": "dot", "title": "Developing Concept Art"}, {"font": {"color": "white"}, "group": "Career", "id": "Graphic_Designer", "label": "Graphic Designer", "physics": true, "shape": "dot", "title": "Graphic Designer"}, {"font": {"color": "white"}, "group": "Career", "id": "Big_Data_Engineer", "label": "Big Data Engineer", "physics": true, "shape": "dot", "title": "Big Data Engineer"}, {"font": {"color": "white"}, "group": "Career", "id": "Software_Engineer", "label": "Software Engineer", "physics": true, "shape": "dot", "title": "Software Engineer"}, {"font": {"color": "white"}, "group": "Career", "id": "Concept_Artist", "label": "Concept Artist", "physics": true, "shape": "dot", "title": "Concept Artist"}, {"font": {"color": "white"}, "group": "Interest", "id": "Web_Development", "label": "Web Development", "physics": true, "shape": "dot", "title": "Web Development"}, {"font": {"color": "white"}, "group": "Career", "id": "Multimedia_Artist", "label": "Multimedia Artist", "physics": true, "shape": "dot", "title": "Multimedia Artist"}, {"font": {"color": "white"}, "group": "Program", "id": "BS Computer Science", "label": "Bs Computer Science", "physics": true, "shape": "dot", "title": "Bs Computer Science"}, {"font": {"color": "white"}, "group": "Program", "id": "BS Information Systems", "label": "Bs Information Systems", "physics": true, "shape": "dot", "title": "Bs Information Systems"}, {"font": {"color": "white"}, "group": "Career", "id": "Motion_Graphics_Designer", "label": "Motion Graphics Designer", "physics": true, "shape": "dot", "title": "Motion Graphics Designer"}, {"font": {"color": "white"}, "group": "Career", "id": "IT_Researcher", "label": "IT Researcher", "physics": true, "shape": "dot", "title": "IT Researcher"}, {"font": {"color": "white"}, "group": "Career", "id": "AI_ML_Engineer", "label": "AI ML Engineer", "physics": true, "shape": "dot", "title": "AI ML Engineer"}, {"font": {"color": "white"}, "group": "Career", "id": "Cybersecurity_Developer", "label": "Cybersecurity Developer", "physics": true, "shape": "dot", "title": "Cybersecurity Developer"}, {"font": {"color": "white"}, "group": "Career", "id": "DevOps_Engineer", "label": "Devops Engineer", "physics": true, "shape": "dot", "title": "Devops Engineer"}, {"font": {"color": "white"}, "group": "Skill", "id": "Designing_User_Interface", "label": "Designing User Interface", "physics": true, "shape": "dot", "title": "Designing User Interface"}, {"font": {"color": "white"}, "group": "Skill", "id": "Designing_User_Interfaces_Code", "label": "Designing User Interfaces Code", "physics": true, "shape": "dot", "title": "Designing User Interfaces Code"}, {"font": {"color": "white"}, "group": "Career", "id": "UX_UI_Designer", "label": "UX UI Designer", "physics": true, "shape": "dot", "title": "UX UI Designer"}, {"font": {"color": "white"}, "group": "Career", "id": "Game_Tester", "label": "Game Tester", "physics": true, "shape": "dot", "title": "Game Tester"}, {"font": {"color": "white"}, "group": "Skill", "id": "Analyzing_Data_with_Code", "label": "Analyzing Data With Code", "physics": true, "shape": "dot", "title": "Analyzing Data With Code"}, {"font": {"color": "white"}, "group": "Career", "id": "Mobile_App_Developer", "label": "Mobile App Developer", "physics": true, "shape": "dot", "title": "Mobile App Developer"}, {"font": {"color": "white"}, "group": "Career", "id": "Data_Analyst", "label": "Data Analyst", "physics": true, "shape": "dot", "title": "Data Analyst"}, {"font": {"color": "white"}, "group": "Program", "id": "BS Entertainment and Multimedia Computing (Game Development)", "label": "Bs Entertainment And Multimedia Computing (game Development)", "physics": true, "shape": "dot", "title": "Bs Entertainment And Multimedia Computing (game Development)"}, {"font": {"color": "white"}, "group": "Interest", "id": "Academic_Research", "label": "Academic Research", "physics": true, "shape": "dot", "title": "Academic Research"}, {"font": {"color": "white"}, "group": "Skill", "id": "Managing_Databases_with_Code", "label": "Managing Databases With Code", "physics": true, "shape": "dot", "title": "Managing Databases With Code"}, {"font": {"color": "white"}, "group": "Skill", "id": "Writing_Code", "label": "Writing Code", "physics": true, "shape": "dot", "title": "Writing Code"}, {"font": {"color": "white"}, "group": "Career", "id": "Backend_Developer", "label": "Backend Developer", "physics": true, "shape": "dot", "title": "Backend Developer"}]);
+                  edges = new vis.DataSet([{"arrows": "to", "color": "#FFD700", "from": "Web_Development", "label": "relatedTo", "title": "relatedTo", "to": "Making_Websites"}, {"arrows": "to", "color": "#B0C4DE", "from": "Frontend_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Making_Websites"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Computer Science", "label": "leadsTo", "title": "leadsTo", "to": "Frontend_Developer"}, {"arrows": "to", "color": "#B0C4DE", "from": "Fullstack_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Making_Websites"}, {"arrows": "to", "color": "#B0C4DE", "from": "Web_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Making_Websites"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "leadsTo", "title": "leadsTo", "to": "Web_Designer"}, {"arrows": "to", "color": "#FFD700", "from": "Web_Development", "label": "relatedTo", "title": "relatedTo", "to": "Writing_Code"}, {"arrows": "to", "color": "#90EE90", "from": "BS Computer Science", "label": "develops", "title": "develops", "to": "Writing_Code"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "develops", "title": "develops", "to": "Writing_Code"}, {"arrows": "to", "color": "#B0C4DE", "from": "Software_Engineer", "label": "requiresSkill", "title": "requiresSkill", "to": "Writing_Code"}, {"arrows": "to", "color": "#B0C4DE", "from": "Fullstack_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Writing_Code"}, {"arrows": "to", "color": "#B0C4DE", "from": "Mobile_App_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Writing_Code"}, {"arrows": "to", "color": "#B0C4DE", "from": "Game_Programmer", "label": "requiresSkill", "title": "requiresSkill", "to": "Writing_Code"}, {"arrows": "to", "color": "#B0C4DE", "from": "Cybersecurity_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Writing_Code"}, {"arrows": "to", "color": "#B0C4DE", "from": "Academic_Programmer", "label": "requiresSkill", "title": "requiresSkill", "to": "Writing_Code"}, {"arrows": "to", "color": "#FFD700", "from": "Web_Development", "label": "relatedTo", "title": "relatedTo", "to": "Building_System_Backbones"}, {"arrows": "to", "color": "#90EE90", "from": "BS Computer Science", "label": "develops", "title": "develops", "to": "Building_System_Backbones"}, {"arrows": "to", "color": "#B0C4DE", "from": "Backend_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Building_System_Backbones"}, {"arrows": "to", "color": "#B0C4DE", "from": "Fullstack_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Building_System_Backbones"}, {"arrows": "to", "color": "#B0C4DE", "from": "DevOps_Engineer", "label": "requiresSkill", "title": "requiresSkill", "to": "Building_System_Backbones"}, {"arrows": "to", "color": "#B0C4DE", "from": "Cloud_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Building_System_Backbones"}, {"arrows": "to", "color": "#FFD700", "from": "Web_Development", "label": "relatedTo", "title": "relatedTo", "to": "Designing_User_Interfaces_Code"}, {"arrows": "to", "color": "#90EE90", "from": "BS Computer Science", "label": "develops", "title": "develops", "to": "Designing_User_Interfaces_Code"}, {"arrows": "to", "color": "#B0C4DE", "from": "Frontend_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Designing_User_Interfaces_Code"}, {"arrows": "to", "color": "#FFD700", "from": "Web_Development", "label": "relatedTo", "title": "relatedTo", "to": "Managing_Databases_with_Code"}, {"arrows": "to", "color": "#90EE90", "from": "BS Computer Science", "label": "develops", "title": "develops", "to": "Managing_Databases_with_Code"}, {"arrows": "to", "color": "#90EE90", "from": "BS Information Systems", "label": "develops", "title": "develops", "to": "Managing_Databases_with_Code"}, {"arrows": "to", "color": "#B0C4DE", "from": "Backend_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Managing_Databases_with_Code"}, {"arrows": "to", "color": "#B0C4DE", "from": "Database_Developer", "label": "requiresSkill", "title": "requiresSkill", "to": "Managing_Databases_with_Code"}, {"arrows": "to", "color": "#B0C4DE", "from": "Big_Data_Engineer", "label": "requiresSkill", "title": "requiresSkill", "to": "Managing_Databases_with_Code"}, {"arrows": "to", "color": "#FFD700", "from": "Web_Development", "label": "relatedTo", "title": "relatedTo", "to": "Designing_User_Experience"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "develops", "title": "develops", "to": "Designing_User_Experience"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "develops", "title": "develops", "to": "Designing_User_Experience"}, {"arrows": "to", "color": "#B0C4DE", "from": "UX_UI_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Designing_User_Experience"}, {"arrows": "to", "color": "#FFD700", "from": "Web_Development", "label": "relatedTo", "title": "relatedTo", "to": "Designing_User_Interface"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "develops", "title": "develops", "to": "Designing_User_Interface"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "develops", "title": "develops", "to": "Designing_User_Interface"}, {"arrows": "to", "color": "#B0C4DE", "from": "UX_UI_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Designing_User_Interface"}, {"arrows": "to", "color": "#B0C4DE", "from": "Web_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Designing_User_Interface"}, {"arrows": "to", "color": "#FFD700", "from": "UX_UI_Design", "label": "relatedTo", "title": "relatedTo", "to": "Designing_User_Experience"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "develops", "title": "develops", "to": "Designing_User_Experience"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "develops", "title": "develops", "to": "Designing_User_Experience"}, {"arrows": "to", "color": "#B0C4DE", "from": "UX_UI_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Designing_User_Experience"}, {"arrows": "to", "color": "#FFD700", "from": "UX_UI_Design", "label": "relatedTo", "title": "relatedTo", "to": "Designing_User_Interface"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "develops", "title": "develops", "to": "Designing_User_Interface"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Game Development)", "label": "develops", "title": "develops", "to": "Designing_User_Interface"}, {"arrows": "to", "color": "#B0C4DE", "from": "UX_UI_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Designing_User_Interface"}, {"arrows": "to", "color": "#B0C4DE", "from": "Web_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Designing_User_Interface"}, {"arrows": "to", "color": "#FFD700", "from": "UX_UI_Design", "label": "relatedTo", "title": "relatedTo", "to": "Creating_Graphics_and_Art"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "develops", "title": "develops", "to": "Creating_Graphics_and_Art"}, {"arrows": "to", "color": "#B0C4DE", "from": "Multimedia_Artist", "label": "requiresSkill", "title": "requiresSkill", "to": "Creating_Graphics_and_Art"}, {"arrows": "to", "color": "#B0C4DE", "from": "Graphic_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Creating_Graphics_and_Art"}, {"arrows": "to", "color": "#B0C4DE", "from": "Motion_Graphics_Designer", "label": "requiresSkill", "title": "requiresSkill", "to": "Creating_Graphics_and_Art"}, {"arrows": "to", "color": "#FFD700", "from": "UX_UI_Design", "label": "relatedTo", "title": "relatedTo", "to": "Developing_Concept_Art"}, {"arrows": "to", "color": "#90EE90", "from": "BS Entertainment and Multimedia Computing (Digital Animation)", "label": "develops", "title": "develops", "to": "Developing_Concept_Art"}, {"arrows": "to", "color": "#B0C4DE", "from": "Concept_Artist", "label": "requiresSkill", "title": "requiresSkill", "to": "Developing_Concept_Art"}, {"arrows": "to", "color": "#FFD700", "from": "Academic_Research", "label": "relatedTo", "title": "relatedTo", "to": "Doing_Research"}, {"arrows": "to", "color": "#B0C4DE", "from": "IT_Researcher", "label": "requiresSkill", "title": "requiresSkill", "to": "Doing_Research"}, {"arrows": "to", "color": "#FFD700", "from": "Academic_Research", "label": "relatedTo", "title": "relatedTo", "to": "Logical_Problem_Solving"}, {"arrows": "to", "color": "#90EE90", "from": "BS Computer Science", "label": "develops", "title": "develops", "to": "Logical_Problem_Solving"}, {"arrows": "to", "color": "#B0C4DE", "from": "IT_Consultant", "label": "requiresSkill", "title": "requiresSkill", "to": "Logical_Problem_Solving"}, {"arrows": "to", "color": "#FFB6C1", "from": "BS Information Technology", "label": "leadsTo", "title": "leadsTo", "to": "IT_Consultant"}, {"arrows": "to", "color": "#B0C4DE", "from": "Systems_Analyst", "label": "requiresSkill", "title": "requiresSkill", "to": "Logical_Problem_Solving"}, {"arrows": "to", "color": "#B0C4DE", "from": "Game_Tester", "label": "requiresSkill", "title": "requiresSkill", "to": "Logical_Problem_Solving"}, {"arrows": "to", "color": "#B0C4DE", "from": "Technology_Consultant", "label": "requiresSkill", "title": "requiresSkill", "to": "Logical_Problem_Solving"}, {"arrows": "to", "color": "#FFD700", "from": "Academic_Research", "label": "relatedTo", "title": "relatedTo", "to": "Thinking_Critically"}, {"arrows": "to", "color": "#FFD700", "from": "Academic_Research", "label": "relatedTo", "title": "relatedTo", "to": "Analyzing_Data_with_Code"}, {"arrows": "to", "color": "#90EE90", "from": "BS Computer Science", "label": "develops", "title": "develops", "to": "Analyzing_Data_with_Code"}, {"arrows": "to", "color": "#B0C4DE", "from": "AI_ML_Engineer", "label": "requiresSkill", "title": "requiresSkill", "to": "Analyzing_Data_with_Code"}, {"arrows": "to", "color": "#B0C4DE", "from": "Data_Scientist", "label": "requiresSkill", "title": "requiresSkill", "to": "Analyzing_Data_with_Code"}, {"arrows": "to", "color": "#FFD700", "from": "Academic_Research", "label": "relatedTo", "title": "relatedTo", "to": "Understanding_Statistics"}, {"arrows": "to", "color": "#90EE90", "from": "BS Computer Science", "label": "develops", "title": "develops", "to": "Understanding_Statistics"}, {"arrows": "to", "color": "#90EE90", "from": "BS Information Systems", "label": "develops", "title": "develops", "to": "Understanding_Statistics"}, {"arrows": "to", "color": "#B0C4DE", "from": "Data_Scientist", "label": "requiresSkill", "title": "requiresSkill", "to": "Understanding_Statistics"}, {"arrows": "to", "color": "#B0C4DE", "from": "Data_Analyst", "label": "requiresSkill", "title": "requiresSkill", "to": "Understanding_Statistics"}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {"physics": {"forceAtlas2Based": {"gravitationalConstant": -100, "centralGravity": 0.005, "springLength": 200, "springConstant": 0.18}, "minVelocity": 0.75, "solver": "forceAtlas2Based"}, "interaction": {"hover": true, "zoomView": true}, "nodes": {"font": {"size": 14, "color": "#ffffff"}, "scaling": {"min": 10, "max": 30}, "borderWidth": 2}, "edges": {"arrows": {"to": {"enabled": true, "scaleFactor": 0.8}}, "font": {"size": 10, "color": "#ffffff", "strokeWidth": 0}, "width": 1.5}};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>
