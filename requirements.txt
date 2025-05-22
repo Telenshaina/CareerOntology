@@ -3,3 +3,4 @@ supabase
 pandas
 st-supabase-connection 
 pytz
+pyvis
