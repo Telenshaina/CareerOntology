@@ -130,7 +130,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.title("🎓 CICS Program Recommender for Grade 12 Students")
+st.title("🎓College of Informatics and Computing Studies (CICS) Program Recommender")
 st.markdown("---")
 
 # --- Session State Management ---
