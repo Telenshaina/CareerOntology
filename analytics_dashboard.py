@@ -1,69 +1,111 @@
-# analytics_dashboard.py
 import streamlit as st
 import pandas as pd
-# from supabase import create_client, Client # No longer needed if using st.connection
-# import supabase # No longer needed if using st.connection
-from st_supabase_connection import SupabaseConnection # <-- Import st_supabase_connection
+from st_supabase_connection import SupabaseConnection
+from datetime import datetime, timedelta
+import pytz # Still need pytz to get timezone-aware current time
 
-# --- Local Imports ---
-from data import format_ontology_name # Assuming data.py is accessible
+def format_ontology_name(name):
+    """Formats an ontology name for display by replacing underscores with spaces."""
+    return name.replace('_', ' ').replace('(broader, includes non-programming aspects)', '').replace('(FinTech)', '').strip()
 
 st.set_page_config(page_title="CICS Analytics Dashboard", layout="wide")
 st.title("📊 CICS Program Recommender Analytics")
 
 password = st.text_input("Enter password to view analytics:", type="password")
-if password != "mylittlepony":
+if password != "mylittlepony": # Replace with your actual password
     st.stop()
 
 st.markdown("---")
 
-# --- Supabase Initialization (Consistent with main.py) ---
-# It automatically reads [connections.supabase] from .streamlit/secrets.toml
-conn = st.connection("supabase", type=SupabaseConnection) # <-- Use st.connection here
+conn = st.connection("supabase", type=SupabaseConnection)
+
+ONTOLOGY_MAP = {
+    "Web_Development": "Programming & Software Development",
+    "Mobile_App_Development": "Programming & Software Development",
+    "Game_Programming": "Programming & Software Development",
+    "Artificial_Intelligence_Machine_Learning": "Programming & Software Development",
+    "Data_Science_Analytics_Programming": "Programming & Software Development",
+    "Backend_Development": "Programming & Software Development",
+    "Frontend_Development": "Programming & Software Development",
+
+    "UX_UI_Design": "Creative & Multimedia Arts",
+    "Graphic_Design": "Creative & Multimedia Arts",
+    "Video_Editing_Production": "Creative & Multimedia Arts",
+    "3D_Modeling_Animation": "Creative & Multimedia Arts",
+    "Motion_Graphics": "Creative & Multimedia Arts",
+    "Illustration": "Creative & Multimedia Arts",
+    "Digital_Art": "Creative & Multimedia Arts",
+
+    "Network_Administration": "IT Infrastructure & Cybersecurity",
+    "Cybersecurity": "IT Infrastructure & Cybersecurity",
+    "Cloud_Computing": "IT Infrastructure & Cybersecurity",
+    "Database_Management": "IT Infrastructure & Cybersecurity",
+    "Operating_Systems": "IT Infrastructure & Cybersecurity",
+    "IT_Infrastructure": "IT Infrastructure & Cybersecurity",
+    "Problem_Solving_Logic": "Foundational & Research Skills",
+
+    "Project_Management": "Business, Management & Analytics",
+    "Business_Analysis": "Business, Management & Analytics",
+    "Entrepreneurship": "Business, Management & Analytics",
+    "Digital_Marketing": "Business, Management & Analytics",
+    "Financial_Technology (FinTech)": "Business, Management & Analytics",
+    "Operations_Management": "Business, Management & Analytics",
+    "Strategy_Planning": "Business, Management & Analytics",
+
+    "Game_Design": "Game Design & Interactive Media",
+    "Game_Development (broader, includes non-programming aspects)": "Game Design & Interactive Media",
+    "Interactive_Storytelling": "Game Design & Interactive Media",
+    "Virtual_Reality_Augmented_Reality": "Game Design & Interactive Media",
+    "Esports_Management": "Game Design & Interactive Media",
+
+    "Computer_Hardware": "Hardware, Robotics & IoT",
+    "Embedded_Systems": "Hardware, Robotics & IoT",
+    "Robotics": "Hardware, Robotics & IoT",
+    "IoT (Internet_of_Things)": "Hardware, Robotics & IoT",
+    "Electronics": "Hardware, Robotics & IoT",
+
+    "Academic_Research": "Foundational & Research Skills",
+    "New_Technologies": "Foundational & Research Skills",
+    "Solving_Complex_Problems": "Foundational & Research Skills",
+}
+
+def get_parent_class(interest_name_raw):
+    return ONTOLOGY_MAP.get(interest_name_raw, "Uncategorized")
 
 @st.cache_data(ttl=600)
 def get_analytics_data():
     try:
-        # Fetch selections
-        # Use conn.table instead of supabase.table
         selections_response = conn.table("user_selections").select("*").execute()
         selections_df = pd.DataFrame(selections_response.data)
 
-        # Fetch user profiles (including strand)
-        # Use conn.table instead of supabase.table
-        profiles_response = conn.table("user_profiles").select("*").execute()
+        # Order by created_at for recency
+        profiles_response = conn.table("user_profiles").select("*").order("created_at", desc=True).execute()
         profiles_df = pd.DataFrame(profiles_response.data)
 
         if selections_df.empty:
-            return None, None # No data
+            return None, None, None
         else:
-            # MODIFIED: Merge the two dataframes on profile_id and id
-            # 'profile_id' is the foreign key in user_selections
-            # 'id' is the primary key in user_profiles
             merged_df = pd.merge(selections_df, profiles_df,
-                                 left_on='profile_id', # <-- Use profile_id from user_selections
-                                 right_on='id',        # <-- Use id from user_profiles
+                                 left_on='profile_id',
+                                 right_on='id',
                                  how='left',
-                                 suffixes=('_selection', '_profile')) # Add suffixes to distinguish columns with same names like 'id'
-
-            return merged_df, selections_df # Return both merged and original selections
+                                 suffixes=('_selection', '_profile'))
+            return merged_df, selections_df, profiles_df
 
     except Exception as e:
         st.error(f"Error fetching data from Supabase: {e}")
-        return None, None
+        return None, None, None
 
-merged_data, selections_df = get_analytics_data()
+merged_data, selections_df, profiles_df = get_analytics_data()
 
-if merged_data is None or merged_data.empty: # Check for empty merged_data too
+if merged_data is None or merged_data.empty:
     st.info("No user selection data collected yet.")
 else:
     st.header("Overall Statistics")
-    # MODIFIED: Count unique profiles based on the 'id_profile' or 'id' from the profiles table
-    total_unique_users = merged_data['id_profile'].nunique() if 'id_profile' in merged_data.columns else merged_data['id'].nunique() # Use id_profile after merge, or just id if not renamed
+    total_unique_users = merged_data['id_profile'].nunique() if 'id_profile' in merged_data.columns else merged_data['id'].nunique()
     total_interest_selections = len(merged_data)
     
-    # Use the timestamp from the selections table, which is 'selected_at'
-    merged_data['selected_at'] = pd.to_datetime(merged_data['selected_at']) # <-- Use 'selected_at' from user_selections
+    merged_data['selected_at'] = pd.to_datetime(merged_data['selected_at'])
     earliest_record = merged_data['selected_at'].min().strftime('%Y-%m-%d %H:%M:%S')
     latest_record = merged_data['selected_at'].max().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -79,35 +121,101 @@ else:
 
     st.markdown("---")
 
+    # --- Display Recently Answered Users ---
+    st.subheader("Recently Answered Users")
+    if profiles_df is not None and not profiles_df.empty:
+        # Convert 'created_at' to datetime. It should already be timezone-aware if from Supabase `timestampz`.
+        profiles_df['created_at'] = pd.to_datetime(profiles_df['created_at'])
+        
+        # Get current time in UTC using pytz
+        utc_now = datetime.now(pytz.utc)
+        
+        # Define a time window for "recently" (e.g., last 7 days)
+        time_threshold = utc_now - timedelta(days=7) 
+        
+        recent_users_df = profiles_df[profiles_df['created_at'] >= time_threshold]
+        recent_users_df = recent_users_df.sort_values(by='created_at', ascending=False)
+
+        if not recent_users_df.empty:
+            recent_users_display = recent_users_df[['name', 'strand', 'created_at']].copy()
+            # Format the display for created_at. You can choose to display in UTC
+            # or convert to a local timezone (e.g., 'Asia/Manila') if preferred.
+            # Example for Manila timezone:
+            # manila_tz = pytz.timezone('Asia/Manila')
+            # recent_users_display['created_at'] = recent_users_display['created_at'].dt.tz_convert(manila_tz).dt.strftime('%Y-%m-%d %H:%M:%S %Z%z')
+            recent_users_display['created_at'] = recent_users_display['created_at'].dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+            recent_users_display.columns = ['Name', 'Strand', 'Answered At']
+            st.dataframe(recent_users_display, hide_index=True)
+        else:
+            st.info("No users have answered in the last 7 days.")
+    else:
+        st.info("No user profile data available.")
+    
+    st.markdown("---")
+
     st.header("Most Popular Interests Selected (Overall)")
-    # Ensure 'interest_raw' is used as the column for interests from user_selections
-    interest_counts_overall = merged_data['interest_raw'].value_counts().reset_index() # <-- Use 'interest_raw'
-    interest_counts_overall.columns = ['Interest', 'Selections']
-    interest_counts_overall['Interest'] = interest_counts_overall['Interest'].apply(format_ontology_name)
-    st.dataframe(interest_counts_overall)
-    st.bar_chart(interest_counts_overall.set_index('Interest'))
+    interest_counts_overall = merged_data['interest_raw'].value_counts().reset_index()
+    interest_counts_overall.columns = ['InterestRaw', 'Selections']
+
+    interest_counts_overall['Main Classification'] = interest_counts_overall['InterestRaw'].apply(get_parent_class)
+    
+    interest_counts_overall['Interest'] = interest_counts_overall['InterestRaw'].apply(format_ontology_name)
+    interest_counts_overall['Main Classification Display'] = interest_counts_overall['Main Classification'].str.replace('_', ' ')
+
+    interest_counts_overall_sorted = interest_counts_overall.sort_values(
+        by=['Main Classification Display', 'Selections'],
+        ascending=[True, False]
+    ).reset_index(drop=True)
+    
+    for main_class in interest_counts_overall_sorted['Main Classification Display'].unique():
+        st.subheader(f"{main_class}")
+        filtered_interests = interest_counts_overall_sorted[
+            interest_counts_overall_sorted['Main Classification Display'] == main_class
+        ]
+        st.dataframe(filtered_interests[['Interest', 'Selections']], hide_index=True)
 
     st.markdown("---")
 
     st.header("Interest Selections by Strand")
     if 'strand' in merged_data.columns and not merged_data['strand'].isnull().all():
-        # Drop rows where strand is None or NaN before grouping for cleaner display
         strand_data = merged_data.dropna(subset=['strand'])
         if not strand_data.empty:
-            interest_by_strand = strand_data.groupby('strand')['interest_raw'].value_counts().unstack(fill_value=0)
-            # Apply format_ontology_name to the index (interests)
-            interest_by_strand.index = interest_by_strand.index.map(format_ontology_name)
-            st.dataframe(interest_by_strand)
+            interest_by_strand_pivot = strand_data.groupby('interest_raw')['strand'].value_counts().unstack(fill_value=0)
+            
+            interest_by_strand_pivot.index = interest_by_strand_pivot.index.map(format_ontology_name)
+            
+            interest_by_strand_pivot.columns = [col.replace('_', ' ') for col in interest_by_strand_pivot.columns]
 
-            # Optional: Visualize top interests per strand
-            # MODIFIED LINE: Iterate directly over the columns of interest_by_strand
-            for s_col in interest_by_strand.columns: # <--- CHANGED THIS LINE
-                st.subheader(f"Top Interests for {s_col} Strand") # <--- Use s_col here
-                strand_interests = interest_by_strand[s_col].sort_values(ascending=False).head(5) # Top 5
-                if not strand_interests.empty:
-                    st.bar_chart(strand_interests)
+            st.dataframe(interest_by_strand_pivot)
+
+            for strand_name in interest_by_strand_pivot.columns:
+                st.subheader(f"Top Interests for {strand_name} Strand")
+                
+                strand_interests_raw = interest_by_strand_pivot[strand_name].sort_values(ascending=False)
+                
+                if not strand_interests_raw.empty and strand_interests_raw.sum() > 0:
+                    plot_df = pd.DataFrame(strand_interests_raw).reset_index()
+                    plot_df.columns = ['Interest', 'Selections']
+                    
+                    formatted_to_raw_map = {format_ontology_name(k): k for k in ONTOLOGY_MAP.keys()}
+
+                    plot_df['Parent Class'] = plot_df['Interest'].apply(
+                        lambda formatted_interest: get_parent_class(formatted_to_raw_map.get(formatted_interest, formatted_interest.replace(' ', '_')))
+                    )
+                    
+                    plot_df['Display Name'] = plot_df.apply(
+                        lambda row: f"{row['Interest']} ({row['Parent Class']})" if row['Parent Class'] != "Uncategorized" else row['Interest'],
+                        axis=1
+                    )
+
+                    top_5_interests = plot_df.head(5)
+                    
+                    if not top_5_interests.empty:
+                        st.bar_chart(top_5_interests.set_index('Display Name')['Selections'])
+                    else:
+                        st.info(f"No top interests to display for {strand_name} Strand.")
                 else:
-                    st.info(f"No interest data yet for {s_col} strand.") # <--- Use s_col here
+                    st.info(f"No interest data yet for {strand_name} strand.")
         else:
             st.info("No strand data available yet.")
     else:
