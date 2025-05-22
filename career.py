@@ -152,7 +152,7 @@ if not st.session_state.profile_complete:
 
     with st.form(key="user_profile_form"):
         user_name_input = st.text_input("Your Name", value=st.session_state.user_name, key="name_input")
-        strand_options = ['STEM', 'ABM', 'HUMSS', 'GAS', 'TVL', 'Arts and Design', 'Sports', 'Other']
+        strand_options = ['STEM', 'ABM', 'HUMSS', 'GAS', 'TVL', 'Arts and Design', 'ICT', 'Other']
         user_strand_input = st.selectbox(
             "Which SHS strand are you currently taking?",
             options=[''] + strand_options, # Add an empty option for initial selection
